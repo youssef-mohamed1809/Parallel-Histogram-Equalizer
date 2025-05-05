@@ -15,8 +15,9 @@
 using namespace std;
 using namespace msclr::interop;
 
-#define MODE 0
+#define MODE 2
 #define NUM_OF_THREADS 16
+#define NUM_OF_PROCESSORS 4
 
 /*
 
@@ -126,6 +127,11 @@ int main()
 			pixelIntensitiesCount[imageData[i]]++;
 		}
 
+		/*
+		for (int i = 0; i < 255; i++) {
+			cout << "Pixel intensity at " << i << ": " << pixelIntensitiesCount[i] << endl;
+		}*/
+
 		// STEP 2
 		for (int i = 0; i < maxIntensity + 1; i++) {
 			pixelIntensitiesProbability[i] = (double)pixelIntensitiesCount[i] / (double)imageSize;
@@ -231,13 +237,80 @@ int main()
 		double* pixelIntensitiesCumulativeProbability = new double[maxIntensity + 1];
 		double* newPixelIntensities = new double[newMaxIntensity + 1];
 
+
+		// TO BE HANDLED
+		if (imageSize % NUM_OF_PROCESSORS == 0) {
+
+		}
+		else {
+
+		}
+
 		MPI_Init(NULL, NULL);
+		int world_size;
+		MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+		int my_rank;
+		MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+
+
+		int* localImageData = new int[imageSize / NUM_OF_PROCESSORS];
+		int localPixelIntensitiesCount[maxIntensity + 1];
+		double localPixelIntensitiesProbability[maxIntensity + 1];
+		double localPixelIntensitiesCumulataiveProbability[(maxIntensity + 1) / NUM_OF_PROCESSORS];
+		// STEP 1
+		MPI_Scatter(imageData, imageSize / NUM_OF_PROCESSORS, MPI_INT, localImageData, imageSize / NUM_OF_PROCESSORS, MPI_INT, 0, MPI_COMM_WORLD);
+
+		for (int i = 0; i < maxIntensity + 1; i++) {
+			localPixelIntensitiesCount[i] = 0;
+		}
+
+		for (int i = 0; i < imageSize / NUM_OF_PROCESSORS; i++) {
+			localPixelIntensitiesCount[localImageData[i]]++;
+		}
+
+		MPI_Reduce(localPixelIntensitiesCount, pixelIntensitiesCount, maxIntensity + 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+
+		// STEP 2
+		MPI_Scatter(pixelIntensitiesCount, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_INT, localPixelIntensitiesCount, 
+			(maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_INT, 0, MPI_COMM_WORLD);
+
+		for (int i = 0; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
+			localPixelIntensitiesProbability[i] = (double)localPixelIntensitiesCount[i] / (double)imageSize;
+		}
+
+		// STEP 3
+		if (my_rank == 0) {
+			localPixelIntensitiesCumulataiveProbability[0] = localPixelIntensitiesProbability[0];
+			for (int i = 1; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
+				localPixelIntensitiesCumulataiveProbability[i] = localPixelIntensitiesProbability[i] + localPixelIntensitiesCumulataiveProbability[i - 1];
+			}
+			double lastValue = localPixelIntensitiesCumulataiveProbability[((maxIntensity + 1) / NUM_OF_PROCESSORS) - 1];
+			MPI_Send(&lastValue, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
+		}
+		else {
+
+			double offset = 0;
+			MPI_Recv(&offset, 1, MPI_DOUBLE, my_rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			localPixelIntensitiesCumulataiveProbability[0] = localPixelIntensitiesProbability[0] + offset;
+			for (int i = 1; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
+				localPixelIntensitiesCumulataiveProbability[i] = localPixelIntensitiesProbability[i] + localPixelIntensitiesCumulataiveProbability[i - 1];
+			}
+			double lastValue = localPixelIntensitiesCumulataiveProbability[((maxIntensity + 1) / NUM_OF_PROCESSORS) - 1];
+			if (my_rank != world_size - 1) {
+				MPI_Send(&lastValue, 1, MPI_DOUBLE, my_rank + 1, 0, MPI_COMM_WORLD);
+			}
+		}
+
+		double scalingFactor = newMaxIntensity / (maxIntensity);
 		
-		int* localData = new int[imageSize / NUM_OF_THREADS];
+		for (int i = 0; i < newMaxIntensity; i++) {
+			newPixelIntensities[i] = pixelIntensitiesCumulativeProbability[i] * newMaxIntensity;
+			newPixelIntensities[i] = floor(newPixelIntensities[i]);
+		}
 
-		MPI_Scatter(imageData, imageSize / NUM_OF_THREADS, MPI_INT, localData, imageSize / NUM_OF_THREADS, MPI_INT, 0, MPI_COMM_WORLD);
-
-
+		/*
 		// STEP 1
 		for (int i = 0; i < maxIntensity + 1; i++) {
 			pixelIntensitiesCount[i] = 0;
@@ -264,7 +337,7 @@ int main()
 			newPixelIntensities[i] = pixelIntensitiesCumulativeProbability[i] * newMaxIntensity;
 			newPixelIntensities[i] = floor(newPixelIntensities[i]);
 		}
-
+		*/
 		// STEP 5
 		int* elSooraElGedeeda = new int[imageSize];
 		for (int i = 0; i < imageSize; i++) {
