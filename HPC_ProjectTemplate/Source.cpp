@@ -6,6 +6,9 @@
 #include <omp.h>
 #include <ctime> // include this header
 #include <mpi.h>
+#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
+
 #pragma once
 
 #using < mscorlib.dll>
@@ -15,7 +18,7 @@
 using namespace std;
 using namespace msclr::interop;
 
-#define MODE 2
+#define MODE 0
 #define NUM_OF_THREADS 16
 #define NUM_OF_PROCESSORS 4
 
@@ -82,7 +85,7 @@ void createImage(int *image, int width, int height, int index)
 			MyNewImage.SetPixel(j, i, c);
 		}
 	}
-	MyNewImage.Save("..//Data//Output//outputRes" + index + ".jpg");
+	MyNewImage.Save("..//..//Data//Output//outputRes" + index + ".png");
 	cout << "result Image Saved " << index << endl;
 }
 
@@ -94,7 +97,7 @@ int main()
 
 	System::String ^ imagePath;
 	std::string img;
-	img = "..//Data//Input//test2.jpg";
+	img = "..//..//Data//Input//test.png";
 
 	imagePath = marshal_as<System::String ^>(img);
 	int *imageData = inputImage(&ImageWidth, &ImageHeight, imagePath);
@@ -375,8 +378,59 @@ int main()
 	createImage(elSooraElGedeeda, ImageWidth, ImageHeight, 1);
 	cout << "time: " << TotalTime << endl;
 
+
+		cv::Mat image = cv::imread("..//..//Data//OutPut//outputRes1.png", cv::IMREAD_GRAYSCALE);
+
+		int histSize = 256;
+		float range[] = { 0, 256 };
+		const float* histRange = { range };
+		cv::Mat hist;
+
+		cv::calcHist(&image, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
+		cv::normalize(hist, hist, 0, 400, cv::NORM_MINMAX);
+
+		int histWidth = 512, histHeight = 400;
+		int binWidth = cvRound((double)histWidth / histSize);
+		cv::Mat histImage(histHeight + 50, histWidth + 50, CV_8UC3, cv::Scalar(255, 255, 255));  // White background
+
+		cv::line(histImage, cv::Point(40, 0), cv::Point(40, histHeight), cv::Scalar(0, 0, 0), 2); // Y-axis
+		cv::line(histImage, cv::Point(40, histHeight), cv::Point(histWidth + 40, histHeight), cv::Scalar(0, 0, 0), 2); // X-axis
+
+		for (int i = 0; i < histSize; i++) {
+			int height = cvRound(hist.at<float>(i));
+			cv::Scalar color = cv::Scalar(i % 256, 255 - i % 256, (i * 2) % 256);  // Generate unique color
+
+			cv::rectangle(histImage,
+				cv::Point(40 + i * binWidth, histHeight - height),
+				cv::Point(40 + (i + 1) * binWidth, histHeight),
+				cv::Scalar(0,0,0),
+				cv::FILLED);
+		}
+
+		for (int i = 0; i <= 255; i += 32) {  
+			std::string label = std::to_string(i);  
+			int xPos = 40 + i * binWidth;
+			cv::putText(histImage, label, cv::Point(xPos, histHeight + 20), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
+		}
+
+		
+		for (int i = 0; i <= 400; i += 50) {  
+			std::string label = std::to_string(i);  
+			cv::putText(histImage, label, cv::Point(10, histHeight - i), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
+		}
+
+		
+		cv::imshow("Histogram", histImage);
+		cv::waitKey(0);
+
+
+
+
 	free(imageData);
 
 #endif
+
+
+
 	return 0;
 }
