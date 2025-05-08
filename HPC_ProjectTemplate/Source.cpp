@@ -22,10 +22,6 @@ using namespace msclr::interop;
 #define NUM_OF_THREADS 16
 #define NUM_OF_PROCESSORS 4
 
-/*
-
-*/
-
 #define maxIntensity 255
 #define newMaxIntensity 255
 
@@ -105,7 +101,7 @@ int main()
 #if MODE != 2
 	start_s = clock();
 #endif
-	// 64
+
 #if MODE == 0
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -125,11 +121,6 @@ int main()
 	{
 		pixelIntensitiesCount[imageData[i]]++;
 	}
-
-	/*
-	for (int i = 0; i < 255; i++) {
-		cout << "Pixel intensity at " << i << ": " << pixelIntensitiesCount[i] << endl;
-	}*/
 
 	// STEP 2
 	for (int i = 0; i < maxIntensity + 1; i++)
@@ -153,14 +144,13 @@ int main()
 	}
 
 	// STEP 5
-	int *elSooraElGedeeda = new int[imageSize];
+	int *newImage = new int[imageSize];
 	for (int i = 0; i < imageSize; i++)
 	{
-		elSooraElGedeeda[i] = newPixelIntensities[imageData[i]];
+		newImage[i] = newPixelIntensities[imageData[i]];
 	}
 #endif
 
-	// 29
 #if MODE == 1
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -169,7 +159,7 @@ int main()
 	double *pixelIntensitiesCumulativeProbability = new double[maxIntensity + 1];
 	double *newPixelIntensities = new double[newMaxIntensity + 1];
 	double scalingFactor = newMaxIntensity / (maxIntensity);
-	int *elSooraElGedeeda = new int[imageSize];
+	int *newImage = new int[imageSize];
 
 	omp_set_num_threads(NUM_OF_THREADS);
 
@@ -239,12 +229,11 @@ int main()
 #pragma omp for
 		for (int i = 0; i < imageSize; i++)
 		{
-			elSooraElGedeeda[i] = newPixelIntensities[imageData[i]];
+			newImage[i] = newPixelIntensities[imageData[i]];
 		}
 	}
 #endif
 
-	// 48
 #if MODE == 2
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -252,11 +241,7 @@ int main()
 	double *pixelIntensitiesProbability = new double[maxIntensity + 1];
 	double *pixelIntensitiesCumulativeProbability = new double[maxIntensity + 1];
 	double *newPixelIntensities = new double[newMaxIntensity + 1];
-	int *elSooraElGedeeda = new int[imageSize];
-
-	// TO BE HANDLED
-	if (imageSize % NUM_OF_PROCESSORS == 0){}
-	else{}
+	int *newImage = new int[imageSize];
 
 	MPI_Init(NULL, NULL);
 	int world_size;
@@ -313,30 +298,6 @@ int main()
 
 	MPI_Scatter(allPixelIntensitiesCumulataiveProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, localPixelIntensitiesCumulataiveProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-	/*
-	// STEP 3
-	if (my_rank == 0) {
-		localPixelIntensitiesCumulataiveProbability[0] = localPixelIntensitiesProbability[0];
-		for (int i = 1; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
-			localPixelIntensitiesCumulataiveProbability[i] = localPixelIntensitiesProbability[i] + localPixelIntensitiesCumulataiveProbability[i - 1];
-		}
-		double lastValue = localPixelIntensitiesCumulataiveProbability[((maxIntensity + 1) / NUM_OF_PROCESSORS) - 1];
-		MPI_Send(&lastValue, 1, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD);
-	}
-	else {
-
-		double offset = 0;
-		MPI_Recv(&offset, 1, MPI_DOUBLE, my_rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-		localPixelIntensitiesCumulataiveProbability[0] = localPixelIntensitiesProbability[0] + offset;
-		for (int i = 1; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
-			localPixelIntensitiesCumulataiveProbability[i] = localPixelIntensitiesProbability[i] + localPixelIntensitiesCumulataiveProbability[i - 1];
-		}
-		double lastValue = localPixelIntensitiesCumulataiveProbability[((maxIntensity + 1) / NUM_OF_PROCESSORS) - 1];
-		if (my_rank != world_size - 1) {
-			MPI_Send(&lastValue, 1, MPI_DOUBLE, my_rank + 1, 0, MPI_COMM_WORLD);
-		}
-	}
-	*/
 	double scalingFactor = newMaxIntensity / (maxIntensity);
 
 	for (int i = 0; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++)
@@ -347,37 +308,20 @@ int main()
 
 	MPI_Allgather(localNewPixelIntensities, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, newPixelIntensities, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, MPI_COMM_WORLD);
 
-	int *localElSooraElGedeeda = new int[imageSize / NUM_OF_PROCESSORS];
+	int *localnewImage = new int[imageSize / NUM_OF_PROCESSORS];
 	for (int i = 0; i < imageSize / NUM_OF_PROCESSORS; i++)
 	{
-		localElSooraElGedeeda[i] = newPixelIntensities[localImageData[i]];
+		localnewImage[i] = newPixelIntensities[localImageData[i]];
 	}
 
-	MPI_Gather(localElSooraElGedeeda, imageSize / NUM_OF_PROCESSORS, MPI_INT, elSooraElGedeeda, imageSize / NUM_OF_PROCESSORS, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Gather(localnewImage, imageSize / NUM_OF_PROCESSORS, MPI_INT, newImage, imageSize / NUM_OF_PROCESSORS, MPI_INT, 0, MPI_COMM_WORLD);
 
 	if (my_rank == 0)
 	{
 		stop_s = clock();
 		TotalTime += (stop_s - start_s) / double(CLOCKS_PER_SEC) * 1000;
-		createImage(elSooraElGedeeda, ImageWidth, ImageHeight, 1);
+		createImage(newImage, ImageWidth, ImageHeight, 1);
 		cout << "time: " << TotalTime << endl;
-
-		free(imageData);
-	}
-
-	MPI_Finalize();
-	/*for (int i = 0; i < maxIntensity + 1; i++) {
-		cout << "Pixel intensity: " << newPixelIntensities[i] << endl;
-	}*/
-
-#endif
-
-#if MODE != 2
-	stop_s = clock();
-	TotalTime += (stop_s - start_s) / double(CLOCKS_PER_SEC) * 1000;
-	createImage(elSooraElGedeeda, ImageWidth, ImageHeight, 1);
-	cout << "time: " << TotalTime << endl;
-
 
 		cv::Mat image = cv::imread("..//..//Data//OutPut//outputRes1.png", cv::IMREAD_GRAYSCALE);
 
@@ -403,25 +347,85 @@ int main()
 			cv::rectangle(histImage,
 				cv::Point(40 + i * binWidth, histHeight - height),
 				cv::Point(40 + (i + 1) * binWidth, histHeight),
-				cv::Scalar(0,0,0),
+				cv::Scalar(0, 0, 0),
 				cv::FILLED);
 		}
 
-		for (int i = 0; i <= 255; i += 32) {  
-			std::string label = std::to_string(i);  
+		for (int i = 0; i <= 255; i += 32) {
+			std::string label = std::to_string(i);
 			int xPos = 40 + i * binWidth;
 			cv::putText(histImage, label, cv::Point(xPos, histHeight + 20), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
 		}
 
-		
-		for (int i = 0; i <= 400; i += 50) {  
-			std::string label = std::to_string(i);  
+
+		for (int i = 0; i <= 400; i += 50) {
+			std::string label = std::to_string(i);
 			cv::putText(histImage, label, cv::Point(10, histHeight - i), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
 		}
 
-		
+
 		cv::imshow("Histogram", histImage);
 		cv::waitKey(0);
+
+
+
+		free(imageData);
+	}
+
+	MPI_Finalize();
+
+#endif
+
+#if MODE != 2
+	stop_s = clock();
+	TotalTime += (stop_s - start_s) / double(CLOCKS_PER_SEC) * 1000;
+	createImage(newImage, ImageWidth, ImageHeight, 1);
+	cout << "time: " << TotalTime << endl;
+
+
+	cv::Mat image = cv::imread("..//..//Data//OutPut//outputRes1.png", cv::IMREAD_GRAYSCALE);
+
+	int histSize = 256;
+	float range[] = { 0, 256 };
+	const float* histRange = { range };
+	cv::Mat hist;
+
+	cv::calcHist(&image, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
+	cv::normalize(hist, hist, 0, 400, cv::NORM_MINMAX);
+
+	int histWidth = 512, histHeight = 400;
+	int binWidth = cvRound((double)histWidth / histSize);
+	cv::Mat histImage(histHeight + 50, histWidth + 50, CV_8UC3, cv::Scalar(255, 255, 255));  // White background
+
+	cv::line(histImage, cv::Point(40, 0), cv::Point(40, histHeight), cv::Scalar(0, 0, 0), 2); // Y-axis
+	cv::line(histImage, cv::Point(40, histHeight), cv::Point(histWidth + 40, histHeight), cv::Scalar(0, 0, 0), 2); // X-axis
+
+	for (int i = 0; i < histSize; i++) {
+		int height = cvRound(hist.at<float>(i));
+		cv::Scalar color = cv::Scalar(i % 256, 255 - i % 256, (i * 2) % 256);  // Generate unique color
+
+		cv::rectangle(histImage,
+			cv::Point(40 + i * binWidth, histHeight - height),
+			cv::Point(40 + (i + 1) * binWidth, histHeight),
+			cv::Scalar(0,0,0),
+			cv::FILLED);
+	}
+
+	for (int i = 0; i <= 255; i += 32) {  
+		std::string label = std::to_string(i);  
+		int xPos = 40 + i * binWidth;
+		cv::putText(histImage, label, cv::Point(xPos, histHeight + 20), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
+	}
+
+		
+	for (int i = 0; i <= 400; i += 50) {  
+		std::string label = std::to_string(i);  
+		cv::putText(histImage, label, cv::Point(10, histHeight - i), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 0), 1, 8);
+	}
+
+		
+	cv::imshow("Histogram", histImage);
+	cv::waitKey(0);
 
 
 
@@ -429,8 +433,6 @@ int main()
 	free(imageData);
 
 #endif
-
-
 
 	return 0;
 }
