@@ -15,7 +15,7 @@
 using namespace std;
 using namespace msclr::interop;
 
-#define MODE 2
+#define MODE 0
 #define NUM_OF_THREADS 16
 #define NUM_OF_PROCESSORS 4
 
@@ -100,14 +100,15 @@ int main()
 
 	System::String^ imagePath;
 	std::string img;
-	img = "C:\\Users\\Asus\\OneDrive\\Desktop\\HPC_ProjectTemplate\\HPC_ProjectTemplate\\Data\\Input\\test2.jpg";
+	img = "..//Data//Input//test2.jpg";
 
 	imagePath = marshal_as<System::String^>(img);
 	int* imageData = inputImage(&ImageWidth, &ImageHeight, imagePath);
 
+#if MODE !=2
 	start_s = clock();
-
-	//62
+#endif
+	//82
 #if MODE == 0
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -145,7 +146,7 @@ int main()
 
 	// STEP 4
 	double scalingFactor = newMaxIntensity / (maxIntensity);
-	for (int i = 0; i < newMaxIntensity; i++) {
+	for (int i = 0; i < maxIntensity + 1; i++) {
 		newPixelIntensities[i] = pixelIntensitiesCumulativeProbability[i] * newMaxIntensity;
 		newPixelIntensities[i] = floor(newPixelIntensities[i]);
 	}
@@ -157,7 +158,7 @@ int main()
 	}
 #endif
 
-	// 27
+	// 45
 #if MODE == 1
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -215,7 +216,7 @@ int main()
 
 		// STEP 4
 #pragma omp for
-		for (int i = 0; i < newMaxIntensity; i++) {
+		for (int i = 0; i < maxIntensity + 1; i++) {
 			newPixelIntensities[i] = pixelIntensitiesCumulativeProbability[i] * newMaxIntensity;
 			newPixelIntensities[i] = floor(newPixelIntensities[i]);
 		}
@@ -229,6 +230,7 @@ int main()
 	}
 #endif
 
+	//61
 #if MODE == 2
 
 	int imageSize = ImageHeight * ImageWidth;
@@ -260,7 +262,10 @@ int main()
 	double localPixelIntensitiesProbability[maxIntensity + 1];
 	double localPixelIntensitiesCumulataiveProbability[(maxIntensity + 1) / NUM_OF_PROCESSORS];
 	double localNewPixelIntensities[(maxIntensity + 1) / NUM_OF_PROCESSORS];
-
+	if (my_rank == 0)
+	{
+		start_s = clock();
+	}
 
 	// STEP 1
 	MPI_Scatter(imageData, imageSize / NUM_OF_PROCESSORS, MPI_INT, localImageData, imageSize / NUM_OF_PROCESSORS, MPI_INT, 0, MPI_COMM_WORLD);
@@ -284,6 +289,22 @@ int main()
 		localPixelIntensitiesProbability[i] = (double)localPixelIntensitiesCount[i] / (double)imageSize;
 	}
 
+
+	double* newlocalPixelIntensitiesProbability = new double[maxIntensity + 1];
+	MPI_Gather(localPixelIntensitiesProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, newlocalPixelIntensitiesProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	double* allPixelIntensitiesCumulataiveProbability = new double[maxIntensity + 1];
+	if (my_rank == 0)
+	{
+		allPixelIntensitiesCumulataiveProbability[0] = newlocalPixelIntensitiesProbability[0];
+		for (int i = 1; i < maxIntensity + 1; i++) {
+			allPixelIntensitiesCumulataiveProbability[i] = newlocalPixelIntensitiesProbability[i] + allPixelIntensitiesCumulataiveProbability[i - 1];
+		}
+	}
+
+	MPI_Scatter(allPixelIntensitiesCumulataiveProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, localPixelIntensitiesCumulataiveProbability, (maxIntensity + 1) / NUM_OF_PROCESSORS, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+
+	/*
 	// STEP 3
 	if (my_rank == 0) {
 		localPixelIntensitiesCumulataiveProbability[0] = localPixelIntensitiesProbability[0];
@@ -306,7 +327,7 @@ int main()
 			MPI_Send(&lastValue, 1, MPI_DOUBLE, my_rank + 1, 0, MPI_COMM_WORLD);
 		}
 	}
-
+	*/
 	double scalingFactor = newMaxIntensity / (maxIntensity);
 
 	for (int i = 0; i < (maxIntensity + 1) / NUM_OF_PROCESSORS; i++) {
