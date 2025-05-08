@@ -15,7 +15,7 @@
 using namespace std;
 using namespace msclr::interop;
 
-#define MODE 0
+#define MODE 2
 #define NUM_OF_THREADS 16
 #define NUM_OF_PROCESSORS 4
 
@@ -87,7 +87,7 @@ void createImage(int* image, int width, int height, int index)
 			MyNewImage.SetPixel(j, i, c);
 		}
 	}
-	MyNewImage.Save("..//Data//Output//outputRes" + index + ".jpg");
+	MyNewImage.Save("..//..//Data//Output//outputRes" + index + ".jpg");
 	cout << "result Image Saved " << index << endl;
 }
 
@@ -100,7 +100,7 @@ int main()
 
 	System::String^ imagePath;
 	std::string img;
-	img = "..//Data//Input//test2.jpg";
+	img = "..//..//Data//Input//test2.jpg";
 
 	imagePath = marshal_as<System::String^>(img);
 	int* imageData = inputImage(&ImageWidth, &ImageHeight, imagePath);
